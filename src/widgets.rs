@@ -9,6 +9,7 @@ use crossbeam::atomic::AtomicCell;
 use nih_plug::debug::*;
 use nih_plug::prelude::{GuiContext, Param, ParamPtr};
 use std::sync::Arc;
+use vizia::context::TreeProps;
 use vizia::prelude::*;
 
 use super::ViziaState;
@@ -144,15 +145,46 @@ impl Model for ParamModel {
 
 impl Model for WindowModel {
     fn event(&mut self, cx: &mut EventContext, event: &mut Event) {
-        event.map(|gui_context_event, meta| match gui_context_event {
-            GuiContextEvent::Resize => {
-                // This will trigger a `WindowEvent::GeometryChanged`, which in turn causes the
-                // handler below this to be fired
-                let (width, height) = self.vizia_state.inner_logical_size();
-                //cx.set_window_size(WindowSize { width, height });
+        // event.map(|gui_context_event, meta| match gui_context_event {
+        // GuiContextEvent::Resize => {
+        // println!("guicontext resize");
 
-                meta.consume();
+        // cx.with_current(cx.parent_window(), |cx| {
+        //     cx.needs_restyle();
+        //     cx.needs_relayout();
+        // })
+        // }
+        // });
+
+        // Handle SetUserScale by updating ViziaState and requesting host resize
+        event.map(|window_event, meta| match window_event {
+            WindowEvent::SetUserScale(scale_factor) => {
+                let old_scale_factor = self.vizia_state.scale_factor.load();
+
+                if (*scale_factor as f64 - old_scale_factor).abs() < 0.001 {
+                    return;
+                }
+
+                // Update the ViziaState's scale factor
+                self.vizia_state.scale_factor.store(*scale_factor as f64);
+
+                // Request the host to resize the window
+                if !self.context.request_resize() {
+                    // Host rejected the resize - revert the scale factor and stop the event
+                    self.vizia_state.scale_factor.store(old_scale_factor);
+                    nih_debug_assert_failure!("Host rejected resize request for SetUserScale");
+                } else {
+                    // Host accepted - the event will bubble up to vizia_baseview's handler
+                    // which will call window.resize(), then a Resized event will come back.
+                    // When that happens, we need vizia to fully recalculate layout.
+
+                    // Trigger full style recalculation (needed for DPI-dependent styles)
+
+                    // Allow the event to bubble up to vizia_baseview's handler
+                }
+                // meta.consume();
             }
+            _ => {}
         });
 
         // This gets fired whenever the inner window gets resized
