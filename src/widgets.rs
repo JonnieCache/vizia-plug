@@ -145,89 +145,21 @@ impl Model for ParamModel {
 
 impl Model for WindowModel {
     fn event(&mut self, cx: &mut EventContext, event: &mut Event) {
-        // event.map(|gui_context_event, meta| match gui_context_event {
-        // GuiContextEvent::Resize => {
-        // println!("guicontext resize");
-
-        // cx.with_current(cx.parent_window(), |cx| {
-        //     cx.needs_restyle();
-        //     cx.needs_relayout();
-        // })
-        // }
-        // });
-
-        // Handle SetUserScale by updating ViziaState and requesting host resize
-        event.map(|window_event, meta| match window_event {
+        event.map(|window_event, _meta| match window_event {
             WindowEvent::SetUserScale(scale_factor) => {
                 let old_scale_factor = self.vizia_state.scale_factor.load();
 
-                if (*scale_factor as f64 - old_scale_factor).abs() < 0.001 {
-                    return;
-                }
-
-                // Update the ViziaState's scale factor
+                cx.set_scale_factor(*scale_factor);
                 self.vizia_state.scale_factor.store(*scale_factor as f64);
 
-                // Request the host to resize the window
                 if !self.context.request_resize() {
-                    // Host rejected the resize - revert the scale factor and stop the event
+                    cx.set_scale_factor(old_scale_factor as f32);
                     self.vizia_state.scale_factor.store(old_scale_factor);
                     nih_debug_assert_failure!("Host rejected resize request for SetUserScale");
-                } else {
-                    // Host accepted - the event will bubble up to vizia_baseview's handler
-                    // which will call window.resize(), then a Resized event will come back.
-                    // When that happens, we need vizia to fully recalculate layout.
-
-                    // Trigger full style recalculation (needed for DPI-dependent styles)
-
-                    // Allow the event to bubble up to vizia_baseview's handler
                 }
-                // meta.consume();
             }
             _ => {}
         });
-
-        // This gets fired whenever the inner window gets resized
-        // event.map(|window_event, _| {
-        //     if let WindowEvent::GeometryChanged { .. } = window_event {
-        //         let logical_size = (cx.window_size().width, cx.window_size().height);
-        //         // `self.vizia_state.inner_logical_size()` should match `logical_size`. Since it's
-        //         // computed we need to store the last logical size on this object.
-        //         nih_debug_assert_eq!(
-        //             logical_size,
-        //             self.vizia_state.inner_logical_size(),
-        //             "The window size set on the vizia context does not match the size returned by \
-        //              'ViziaState::size_fn'"
-        //         );
-        //         let old_logical_size @ (old_logical_width, old_logical_height) =
-        //             self.last_inner_window_size.load();
-        //         let scale_factor = cx.user_scale_factor();
-        //         let old_user_scale_factor = self.vizia_state.scale_factor.load();
-
-        //         // Don't do anything if the current size already matches the new size, this could
-        //         // otherwise also cause a feedback loop on resize failure
-        //         if logical_size == old_logical_size && scale_factor == old_user_scale_factor {
-        //             return;
-        //         }
-
-        //         // Our embedded baseview window will have already been resized. If the host does not
-        //         // accept our new size, then we'll try to undo that
-        //         self.last_inner_window_size.store(logical_size);
-        //         self.vizia_state.scale_factor.store(scale_factor);
-        //         if !self.context.request_resize() {
-        //             self.last_inner_window_size.store(old_logical_size);
-        //             self.vizia_state.scale_factor.store(old_user_scale_factor);
-
-        //             // This will cause the window's size to be reverted on the next event loop
-        //             // NOTE: Is resizing back the correct behavior now that the size is computed?
-        //             cx.set_window_size(WindowSize {
-        //                 width: old_logical_width,
-        //                 height: old_logical_height,
-        //             });
-        //             cx.set_user_scale_factor(old_user_scale_factor);
-        //         }
-        //     }
-        // });
     }
 }
 
