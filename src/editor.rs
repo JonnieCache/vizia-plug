@@ -121,7 +121,7 @@ impl Editor for ViziaEditor {
 
     fn size(&self) -> (u32, u32) {
         // This includes the user scale factor if set, but not any HiDPI scaling
-        self.vizia_state.scaled_logical_size()
+        self.vizia_state.inner_logical_size()
     }
 
     fn set_scale_factor(&self, factor: f32) -> bool {

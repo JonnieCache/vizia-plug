@@ -145,18 +145,16 @@ impl Model for ParamModel {
 
 impl Model for WindowModel {
     fn event(&mut self, cx: &mut EventContext, event: &mut Event) {
-        event.map(|window_event, _meta| match window_event {
+        event.map(|window_event, meta| match window_event {
             WindowEvent::SetUserScale(scale_factor) => {
+                println!("plug setuserscale {scale_factor}");
                 let old_scale_factor = self.vizia_state.scale_factor.load();
 
                 cx.set_scale_factor(*scale_factor);
                 self.vizia_state.scale_factor.store(*scale_factor as f64);
 
-                if !self.context.request_resize() {
-                    cx.set_scale_factor(old_scale_factor as f32);
-                    self.vizia_state.scale_factor.store(old_scale_factor);
-                    nih_debug_assert_failure!("Host rejected resize request for SetUserScale");
-                }
+                self.context.request_resize();
+                // meta.consume();
             }
             _ => {}
         });
