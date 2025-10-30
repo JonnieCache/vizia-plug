@@ -122,6 +122,9 @@ pub(crate) struct WindowModel {
     /// The last known unscaled logical window size. Used to prevent sending duplicate resize
     /// requests.
     pub last_inner_window_size: AtomicCell<(u32, u32)>,
+
+    /// The system/OS DPI scale factor (HiDPI scaling).
+    pub system_scale_factor: f32,
 }
 
 impl Model for ParamModel {
@@ -144,56 +147,25 @@ impl Model for ParamModel {
 
 impl Model for WindowModel {
     fn event(&mut self, cx: &mut EventContext, event: &mut Event) {
-        event.map(|gui_context_event, meta| match gui_context_event {
-            GuiContextEvent::Resize => {
-                // This will trigger a `WindowEvent::GeometryChanged`, which in turn causes the
-                // handler below this to be fired
-                let (width, height) = self.vizia_state.inner_logical_size();
-                //cx.set_window_size(WindowSize { width, height });
+        event.map(|window_event, meta| match window_event {
+            WindowEvent::SetUserScale(scale_factor) => {
+                // Multiply user scale by system DPI scale to get the final scale
+                cx.set_scale_factor(*scale_factor * self.system_scale_factor);
+                self.vizia_state.scale_factor.store(*scale_factor as f64);
+                self.context.request_resize();
 
-                meta.consume();
+                // meta.consume();
             }
+            _ => {}
         });
+        // event.map(|gui_context_event, meta| match gui_context_event {
+        //     GuiContextEvent::Resize => {
+        //         // This will trigger a `WindowEvent::GeometryChanged`, which in turn causes the
+        //         // handler below this to be fired
+        //         let (width, height) = self.vizia_state.inner_logical_size();
+        //         //cx.set_window_size(WindowSize { width, height });
 
-        // This gets fired whenever the inner window gets resized
-        // event.map(|window_event, _| {
-        //     if let WindowEvent::GeometryChanged { .. } = window_event {
-        //         let logical_size = (cx.window_size().width, cx.window_size().height);
-        //         // `self.vizia_state.inner_logical_size()` should match `logical_size`. Since it's
-        //         // computed we need to store the last logical size on this object.
-        //         nih_debug_assert_eq!(
-        //             logical_size,
-        //             self.vizia_state.inner_logical_size(),
-        //             "The window size set on the vizia context does not match the size returned by \
-        //              'ViziaState::size_fn'"
-        //         );
-        //         let old_logical_size @ (old_logical_width, old_logical_height) =
-        //             self.last_inner_window_size.load();
-        //         let scale_factor = cx.user_scale_factor();
-        //         let old_user_scale_factor = self.vizia_state.scale_factor.load();
-
-        //         // Don't do anything if the current size already matches the new size, this could
-        //         // otherwise also cause a feedback loop on resize failure
-        //         if logical_size == old_logical_size && scale_factor == old_user_scale_factor {
-        //             return;
-        //         }
-
-        //         // Our embedded baseview window will have already been resized. If the host does not
-        //         // accept our new size, then we'll try to undo that
-        //         self.last_inner_window_size.store(logical_size);
-        //         self.vizia_state.scale_factor.store(scale_factor);
-        //         if !self.context.request_resize() {
-        //             self.last_inner_window_size.store(old_logical_size);
-        //             self.vizia_state.scale_factor.store(old_user_scale_factor);
-
-        //             // This will cause the window's size to be reverted on the next event loop
-        //             // NOTE: Is resizing back the correct behavior now that the size is computed?
-        //             cx.set_window_size(WindowSize {
-        //                 width: old_logical_width,
-        //                 height: old_logical_height,
-        //             });
-        //             cx.set_user_scale_factor(old_user_scale_factor);
-        //         }
+        //         meta.consume();
         //     }
         // });
     }

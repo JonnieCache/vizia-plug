@@ -78,6 +78,7 @@ impl Editor for ViziaEditor {
                     current_inner_window_size.width() as u32,
                     current_inner_window_size.height() as u32,
                 )),
+                system_scale_factor: system_scaling_factor.unwrap_or(1.0),
             }
             .build(cx);
 
